@@ -15443,6 +15443,204 @@ instruct alltrue_in_maskV32(mRegI dst, vecY src1, vecY src2, vecY tmp1, vecY tmp
   ins_pipe(pipe_slow);
 %}
 
+// ----------------------------- VectorMaskTrueCount ----------------------------
+
+instruct vmask_truecount16B(mRegI dst, vecX src, vecX tmp1, vecX tmp2) %{
+  predicate(vector_element_basic_type(n->in(1)) == T_BOOLEAN);
+  match(Set dst (VectorMaskTrueCount src));
+  effect(TEMP tmp1, TEMP tmp2);
+  format %{ "vmask_truecount   $dst, $src\t# TEMP($tmp1, $tmp2) @vmask_truecount16B" %}
+  ins_encode %{
+    // Input "src" is a vector of boolean represented as bytes with
+    // 0x00/0x01 as element values.
+    __ vpermi_w($tmp1$$FloatRegister, $src$$FloatRegister, 0b00001110);
+    __ vadd_b($tmp1$$FloatRegister, $src$$FloatRegister, $tmp1$$FloatRegister);
+    __ vshuf4i_w($tmp2$$FloatRegister, $tmp1$$FloatRegister, 0b00000001);
+    __ vadd_b($tmp1$$FloatRegister, $tmp2$$FloatRegister, $tmp1$$FloatRegister);
+    __ vshuf4i_h($tmp2$$FloatRegister, $tmp1$$FloatRegister, 0b00000001);
+    __ vadd_b($tmp1$$FloatRegister, $tmp2$$FloatRegister, $tmp1$$FloatRegister);
+    __ vshuf4i_b($tmp2$$FloatRegister, $tmp1$$FloatRegister, 0b00000001);
+    __ vadd_b($tmp1$$FloatRegister, $tmp2$$FloatRegister, $tmp1$$FloatRegister);
+    __ vpickve2gr_b($dst$$Register, $tmp1$$FloatRegister, 0);
+  %}
+  ins_pipe(pipe_slow);
+%}
+
+instruct vmask_truecount32B(mRegI dst, vecY src, vecY tmp1, vecY tmp2) %{
+  predicate(vector_element_basic_type(n->in(1)) == T_BOOLEAN);
+  match(Set dst (VectorMaskTrueCount src));
+  effect(TEMP tmp1, TEMP tmp2);
+  format %{ "vmask_truecount   $dst, $src\t# TEMP($tmp1, $tmp2) @vmask_truecount32B" %}
+  ins_encode %{
+    // Input "src" is a vector of boolean represented as bytes with
+    // 0x00/0x01 as element values.
+    __ xvpermi_d($tmp1$$FloatRegister, $src$$FloatRegister, 0b00001110);
+    __ vadd_b($tmp1$$FloatRegister, $src$$FloatRegister, $tmp1$$FloatRegister);
+    __ vpermi_w($tmp2$$FloatRegister, $tmp1$$FloatRegister, 0b00001110);
+    __ vadd_b($tmp1$$FloatRegister, $tmp2$$FloatRegister, $tmp1$$FloatRegister);
+    __ vshuf4i_w($tmp2$$FloatRegister, $tmp1$$FloatRegister, 0b00000001);
+    __ vadd_b($tmp1$$FloatRegister, $tmp2$$FloatRegister, $tmp1$$FloatRegister);
+    __ vshuf4i_h($tmp2$$FloatRegister, $tmp1$$FloatRegister, 0b00000001);
+    __ vadd_b($tmp1$$FloatRegister, $tmp2$$FloatRegister, $tmp1$$FloatRegister);
+    __ vshuf4i_b($tmp2$$FloatRegister, $tmp1$$FloatRegister, 0b00000001);
+    __ vadd_b($tmp1$$FloatRegister, $tmp2$$FloatRegister, $tmp1$$FloatRegister);
+    __ vpickve2gr_b($dst$$Register, $tmp1$$FloatRegister, 0);
+  %}
+  ins_pipe(pipe_slow);
+%}
+
+// ----------------------------- VectorMaskFirstTrue ----------------------------
+
+instruct vmask_firsttrue16B(mRegI dst, vecX src, mRegI tmp) %{
+  predicate(vector_element_basic_type(n->in(1)) == T_BOOLEAN);
+  match(Set dst (VectorMaskFirstTrue src));
+  effect(TEMP_DEF dst, TEMP tmp);
+  format %{ "vmask_firsttrue    $dst, $src\t# TEMP($tmp) @vmask_firsttrue16B" %}
+  ins_encode %{
+    // Returns the index of the first active lane of the
+    // vector mask, or 16 (VLENGTH) if no lane is active.
+    //
+    // Input "src" is a vector of boolean represented as
+    // bytes with 0x00/0x01 as element values.
+
+    Label FIRST_TRUE_INDEX;
+
+    // Try to compute the result from lower 64 bits.
+    __ vpickve2gr_d($dst$$Register, $src$$FloatRegister, 0);
+    __ li($tmp$$Register, (long)0);
+    __ bnez($dst$$Register, FIRST_TRUE_INDEX);
+
+    // Compute the result from the higher 64 bits.
+    __ vpickve2gr_d($dst$$Register, $src$$FloatRegister, 1);
+    __ li($tmp$$Register, (long)8);
+
+    // Count the Trailing zero bytes.
+    __ bind(FIRST_TRUE_INDEX);
+    __ ctz_d($dst$$Register, $dst$$Register);
+    __ srli_w($dst$$Register, $dst$$Register, 3);
+    __ add_w($dst$$Register, $tmp$$Register, $dst$$Register);
+  %}
+  ins_pipe(pipe_slow);
+%}
+
+instruct vmask_firsttrue32B(mRegI dst, vecY src, mRegI tmp) %{
+  predicate(vector_element_basic_type(n->in(1)) == T_BOOLEAN);
+  match(Set dst (VectorMaskFirstTrue src));
+  effect(TEMP_DEF dst, TEMP tmp);
+  format %{ "vmask_firsttrue    $dst, $src\t# TEMP($tmp) @vmask_firsttrue32B" %}
+  ins_encode %{
+    // Returns the index of the first active lane of the
+    // vector mask, or 32 (VLENGTH) if no lane is active.
+    //
+    // Input "src" is a vector of boolean represented as
+    // bytes with 0x00/0x01 as element values.
+
+    Label FIRST_TRUE_INDEX;
+
+    // Try to compute the result from lower 64 bits.
+    __ xvpickve2gr_d($dst$$Register, $src$$FloatRegister, 0);
+    __ li($tmp$$Register, (long)0);
+    __ bnez($dst$$Register, FIRST_TRUE_INDEX);
+
+    // Compute the result from the mid-lower 64 bits.
+    __ xvpickve2gr_d($dst$$Register, $src$$FloatRegister, 1);
+    __ li($tmp$$Register, (long)8);
+    __ bnez($dst$$Register, FIRST_TRUE_INDEX);
+
+    // Compute the result from the mid-higher 64 bits.
+    __ xvpickve2gr_d($dst$$Register, $src$$FloatRegister, 2);
+    __ li($tmp$$Register, (long)16);
+    __ bnez($dst$$Register, FIRST_TRUE_INDEX);
+
+    // Compute the result from the higher 64 bits.
+    __ xvpickve2gr_d($dst$$Register, $src$$FloatRegister, 3);
+    __ li($tmp$$Register, (long)24);
+
+    // Count the Trailing zero bytes.
+    __ bind(FIRST_TRUE_INDEX);
+    __ ctz_d($dst$$Register, $dst$$Register);
+    __ srli_w($dst$$Register, $dst$$Register, 3);
+    __ add_w($dst$$Register, $tmp$$Register, $dst$$Register);
+  %}
+  ins_pipe(pipe_slow);
+%}
+
+// ----------------------------- VectorMaskLastTrue ----------------------------
+
+instruct vmask_lasttrue16B(mRegI dst, vecX src, mRegI tmp) %{
+  predicate(vector_element_basic_type(n->in(1)) == T_BOOLEAN);
+  match(Set dst (VectorMaskLastTrue src));
+  effect(TEMP_DEF dst, TEMP tmp);
+  format %{ "vmask_lasttrue    $dst, $src\t# TEMP($tmp) @vmask_lasttrue16B" %}
+  ins_encode %{
+    // Returns the index of the last active lane of the
+    // vector mask, or -1 if no lane is active.
+    //
+    // Input "src" is a vector of boolean represented as
+    // bytes with 0x00/0x01 as element values.
+
+    Label FIRST_TRUE_INDEX;
+
+    // Try to compute the result from higher 64 bits.
+    __ vpickve2gr_d($dst$$Register, $src$$FloatRegister, 1);
+    __ li($tmp$$Register, (long)16 - 1);
+    __ bnez($dst$$Register, FIRST_TRUE_INDEX);
+
+    // Compute the result from the lower 64 bits.
+    __ vpickve2gr_d($dst$$Register, $src$$FloatRegister, 0);
+    __ li($tmp$$Register, (long)8 - 1);
+
+    // Count the Trailing zero bytes.
+    __ bind(FIRST_TRUE_INDEX);
+    __ clz_d($dst$$Register, $dst$$Register);
+    __ srli_w($dst$$Register, $dst$$Register, 3);
+    __ sub_w($dst$$Register, $tmp$$Register, $dst$$Register);
+  %}
+  ins_pipe(pipe_slow);
+%}
+
+instruct vmask_lasttrue32B(mRegI dst, vecY src, mRegI tmp) %{
+  predicate(vector_element_basic_type(n->in(1)) == T_BOOLEAN);
+  match(Set dst (VectorMaskLastTrue src));
+  effect(TEMP_DEF dst, TEMP tmp);
+  format %{ "vmask_lasttrue    $dst, $src\t# TEMP($tmp) @vmask_lasttrue32B" %}
+  ins_encode %{
+    // Returns the index of the last active lane of the
+    // vector mask, or -1 if no lane is active.
+    //
+    // Input "src" is a vector of boolean represented as
+    // bytes with 0x00/0x01 as element values.
+
+    Label FIRST_TRUE_INDEX;
+
+    // Try to compute the result from higher 64 bits.
+    __ xvpickve2gr_d($dst$$Register, $src$$FloatRegister, 3);
+    __ li($tmp$$Register, (long)32 - 1);
+    __ bnez($dst$$Register, FIRST_TRUE_INDEX);
+
+    // Compute the result from the mid-higher 64 bits.
+    __ xvpickve2gr_d($dst$$Register, $src$$FloatRegister, 2);
+    __ li($tmp$$Register, (long)24 - 1);
+    __ bnez($dst$$Register, FIRST_TRUE_INDEX);
+
+    // Compute the result from the mid-lower 64 bits.
+    __ xvpickve2gr_d($dst$$Register, $src$$FloatRegister, 1);
+    __ li($tmp$$Register, (long)16 - 1);
+    __ bnez($dst$$Register, FIRST_TRUE_INDEX);
+
+    // Compute the result from the lower 64 bits.
+    __ xvpickve2gr_d($dst$$Register, $src$$FloatRegister, 0);
+    __ li($tmp$$Register, (long)8 - 1);
+
+    // Count the Trailing zero bytes.
+    __ bind(FIRST_TRUE_INDEX);
+    __ clz_d($dst$$Register, $dst$$Register);
+    __ srli_w($dst$$Register, $dst$$Register, 3);
+    __ sub_w($dst$$Register, $tmp$$Register, $dst$$Register);
+  %}
+  ins_pipe(pipe_slow);
+%}
+
 // ----------------------------- Vector comparison ----------------------------
 
 instruct cmpV16(vecX dst, vecX src1, vecX src2, immI cond)
