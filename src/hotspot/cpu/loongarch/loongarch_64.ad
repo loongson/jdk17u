@@ -7748,15 +7748,45 @@ instruct string_inflate(Universe dummy, a4_RegP src, a5_RegP dst, mA6RegI len,
 %}
 
 // intrinsic optimization
-instruct string_equals(a4_RegP str1, a5_RegP str2, mA6RegI cnt, no_Ax_mRegI result, t8RegL tmp1, t3RegL tmp2) %{
+instruct string_equals(a4_RegP str1, a5_RegP str2, mA6RegI cnt, no_Ax_mRegI result, mRegL tmp1, mRegL tmp2) %{
   match(Set result (StrEquals (Binary str1 str2) cnt));
-  effect(USE_KILL str1, USE_KILL str2, USE_KILL cnt, KILL tmp1, KILL tmp2);
+  effect(USE_KILL str1, USE_KILL str2, USE_KILL cnt, TEMP_DEF result, TEMP tmp1, TEMP tmp2);
 
-  format %{ "String Equal $str1, $str2, len:$cnt, tmp1:$tmp1, tmp2:$tmp2 -> $result @ string_equals" %}
+  format %{ "String Equal $str1, $str2, len:$cnt -> $result TEMP($tmp1, $tmp2) @ string_equals" %}
   ins_encode %{
     __ arrays_equals($str1$$Register, $str2$$Register,
                      $cnt$$Register, $tmp1$$Register, $tmp2$$Register, $result$$Register,
-                     false/* byte */);
+                     false/* is_char */, false/* is_array */);
+  %}
+
+  ins_pipe( pipe_slow );
+%}
+
+instruct array_equalsB(a4_RegP ary1, a5_RegP ary2, no_Ax_mRegI result, mRegL tmp0, mRegL tmp1, mRegL tmp2) %{
+  predicate(((AryEqNode*)n)->encoding() == StrIntrinsicNode::LL);
+  match(Set result (AryEq ary1 ary2));
+  effect(USE_KILL ary1, USE_KILL ary2, TEMP_DEF result, TEMP tmp0, TEMP tmp1, TEMP tmp2);
+
+  format %{ "Array Equals byte[] $ary1,$ary2 -> $result TEMP($tmp0, $tmp1, $tmp2) @ array_equalsB" %}
+  ins_encode %{
+    __ arrays_equals($ary1$$Register, $ary2$$Register,
+                     $tmp0$$Register, $tmp1$$Register, $tmp2$$Register, $result$$Register,
+                     false/* is_char */, true/* is_array */);
+  %}
+
+  ins_pipe( pipe_slow );
+%}
+
+instruct array_equalsC(a4_RegP ary1, a5_RegP ary2, no_Ax_mRegI result, mRegL tmp0, mRegL tmp1, mRegL tmp2) %{
+  predicate(((AryEqNode*)n)->encoding() == StrIntrinsicNode::UU);
+  match(Set result (AryEq ary1 ary2));
+  effect(USE_KILL ary1, USE_KILL ary2, TEMP_DEF result, TEMP tmp0, TEMP tmp1, TEMP tmp2);
+
+  format %{ "Array Equals char[] $ary1,$ary2 -> $result TEMP($tmp0, $tmp1, $tmp2) @ array_equalsC" %}
+  ins_encode %{
+    __ arrays_equals($ary1$$Register, $ary2$$Register,
+                     $tmp0$$Register, $tmp1$$Register, $tmp2$$Register, $result$$Register,
+                     true/* is_char */, true/* is_array */);
   %}
 
   ins_pipe( pipe_slow );
