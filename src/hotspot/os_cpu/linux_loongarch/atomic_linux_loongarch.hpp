@@ -167,17 +167,6 @@ inline T Atomic::PlatformCmpxchg<4>::operator()(T volatile* dest,
 
   switch (order) {
   case memory_order_relaxed:
-    asm volatile (
-      "1: ll.w %[prev], %[dest]     \n\t"
-      "   bne  %[prev], %[_old], 2f \n\t"
-      "   move %[temp], %[_new]     \n\t"
-      "   sc.w %[temp], %[dest]     \n\t"
-      "   beqz %[temp], 1b          \n\t"
-      "2:                           \n\t"
-      : [prev] "=&r" (prev), [temp] "=&r" (temp)
-      : [_old] "r" (compare_value), [_new] "r" (exchange_value), [dest] "ZC" (*dest)
-      : "memory");
-    break;
   default:
     asm volatile (
       "1: ll.w %[prev], %[dest]     \n\t"
@@ -208,17 +197,6 @@ inline T Atomic::PlatformCmpxchg<8>::operator()(T volatile* dest,
 
   switch (order) {
   case memory_order_relaxed:
-    asm volatile (
-      "1: ll.d %[prev], %[dest]     \n\t"
-      "   bne  %[prev], %[_old], 2f \n\t"
-      "   move %[temp], %[_new]     \n\t"
-      "   sc.d %[temp], %[dest]     \n\t"
-      "   beqz %[temp], 1b          \n\t"
-      "2:                           \n\t"
-      : [prev] "=&r" (prev), [temp] "=&r" (temp)
-      : [_old] "r" (compare_value), [_new] "r" (exchange_value), [dest] "ZC" (*dest)
-      : "memory");
-    break;
   default:
     asm volatile (
       "1: ll.d %[prev], %[dest]     \n\t"
