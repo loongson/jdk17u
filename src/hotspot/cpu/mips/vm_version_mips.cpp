@@ -511,6 +511,17 @@ void VM_Version::get_processor_features() {
     FLAG_SET_DEFAULT(UseFMA, true);
   }
 
+  if (UseActiveCoresMP) {
+    if (os::Linux::sched_active_processor_count() != 1) {
+      if (!FLAG_IS_DEFAULT(UseActiveCoresMP))
+        warning("UseActiveCoresMP disabled because active processors are more than one.");
+      FLAG_SET_DEFAULT(UseActiveCoresMP, false);
+    }
+  } else {
+    if (!os::is_MP())
+      FLAG_SET_DEFAULT(UseActiveCoresMP, true);
+  }
+
   UNSUPPORTED_OPTION(CriticalJNINatives);
 }
 
