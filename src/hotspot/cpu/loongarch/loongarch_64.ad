@@ -1583,12 +1583,7 @@ uint MachSpillCopyNode::implementation( CodeBuffer *cbuf, PhaseRegAlloc *ra_, bo
           if (this->ideal_reg() == Op_RegI)
             __ ld_w(as_Register(Matcher::_regEncode[dst_first]), Address(SP, offset));
           else {
-            if (Assembler::is_simm(offset, 12)) {
-              __ ld_wu(as_Register(Matcher::_regEncode[dst_first]), Address(SP, offset));
-            } else {
-              __ li(AT, offset);
-              __ ldx_wu(as_Register(Matcher::_regEncode[dst_first]), SP, AT);
-            }
+            __ ld_wu(as_Register(Matcher::_regEncode[dst_first]), Address(SP, offset));
           }
 #ifndef PRODUCT
         } else {
@@ -1612,12 +1607,7 @@ uint MachSpillCopyNode::implementation( CodeBuffer *cbuf, PhaseRegAlloc *ra_, bo
         int offset = ra_->reg2offset(src_first);
         if (cbuf) {
           C2_MacroAssembler _masm(cbuf);
-          if (Assembler::is_simm(offset, 12)) {
-            __ fld_d( as_FloatRegister(Matcher::_regEncode[dst_first]), Address(SP, offset));
-          } else {
-            __ li(AT, offset);
-            __ fldx_d( as_FloatRegister(Matcher::_regEncode[dst_first]), SP, AT);
-          }
+          __ fld_d( as_FloatRegister(Matcher::_regEncode[dst_first]), Address(SP, offset));
 #ifndef PRODUCT
         } else {
           st->print("\tfld_d  %s, [SP + #%d]\t# spill 6",
@@ -1758,13 +1748,7 @@ uint MachSpillCopyNode::implementation( CodeBuffer *cbuf, PhaseRegAlloc *ra_, bo
         int offset = ra_->reg2offset(dst_first);
         if (cbuf) {
           C2_MacroAssembler _masm(cbuf);
-          if (Assembler::is_simm(offset, 12)) {
-            __ fst_d( as_FloatRegister(Matcher::_regEncode[src_first]), Address(SP, offset) );
-          }
-          else {
-            __ li(AT, offset);
-            __ fstx_d( as_FloatRegister(Matcher::_regEncode[src_first]), SP, AT);
-          }
+          __ fst_d( as_FloatRegister(Matcher::_regEncode[src_first]), Address(SP, offset) );
 #ifndef PRODUCT
         } else {
           st->print("\n\t");

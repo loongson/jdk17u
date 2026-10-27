@@ -188,13 +188,13 @@ void C2_MacroAssembler::fast_lock(Register objReg, Register boxReg, Register res
     bind(fail);
   }
 
-  ld_d(tmpReg, Address(objReg, 0)); //Fetch the markword of the object.
+  ld_d(tmpReg, objReg, 0); //Fetch the markword of the object.
   andi(AT, tmpReg, markWord::monitor_value);
   bnez(AT, IsInflated); // inflated vs stack-locked|neutral|bias
 
   // Attempt stack-locking ...
   ori(tmpReg, tmpReg, markWord::unlocked_value);
-  st_d(tmpReg, Address(boxReg, 0)); // Anticipate successful CAS
+  st_d(tmpReg, boxReg, 0); // Anticipate successful CAS
 
   if (PrintBiasedLockingStatistics) {
     Label SUCC, FAIL;
@@ -215,7 +215,7 @@ void C2_MacroAssembler::fast_lock(Register objReg, Register boxReg, Register res
   sub_d(tmpReg, tmpReg, SP);
   li(AT, 7 - os::vm_page_size());
   andr(tmpReg, tmpReg, AT);
-  st_d(tmpReg, Address(boxReg, 0));
+  st_d(tmpReg, boxReg, 0);
 
   if (PrintBiasedLockingStatistics) {
     Label L;
@@ -239,7 +239,7 @@ void C2_MacroAssembler::fast_lock(Register objReg, Register boxReg, Register res
   // avoid an RTO->RTS upgrade on the $line.
   // Without cast to int32_t a movptr will destroy r10 which is typically obj
   li(AT, (int32_t)intptr_t(markWord::unused_mark().value()));
-  st_d(AT, Address(boxReg, 0));
+  st_d(AT, boxReg, 0);
 
   ld_d(AT, Address(tmpReg, ObjectMonitor::owner_offset_in_bytes() - 2));
   // if (m->owner != 0) => AT = 0, goto slow path.
@@ -320,11 +320,11 @@ void C2_MacroAssembler::fast_unlock(Register objReg, Register boxReg, Register r
     bind(fail);
   }
 
-  ld_d(tmpReg, Address(boxReg, 0)); // Examine the displaced header
+  ld_d(tmpReg, boxReg, 0); // Examine the displaced header
   sltui(AT, tmpReg, 1);
   beqz(tmpReg, DONE_SET); // 0 indicates recursive stack-lock
 
-  ld_d(tmpReg, Address(objReg, 0)); // Examine the object's markword
+  ld_d(tmpReg, objReg, 0); // Examine the object's markword
   andi(AT, tmpReg, markWord::monitor_value);
   beqz(AT, Stacked); // Inflated?
 
@@ -376,7 +376,7 @@ void C2_MacroAssembler::fast_unlock(Register objReg, Register boxReg, Register r
   b(DONE);
 
   bind(Stacked);
-  ld_d(tmpReg, Address(boxReg, 0));
+  ld_d(tmpReg, boxReg, 0);
   cmpxchg(Address(objReg, 0), boxReg, tmpReg, AT, false, true /* acquire */);
 
   bind(DONE_SET);
